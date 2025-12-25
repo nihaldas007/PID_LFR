@@ -16,13 +16,16 @@ float Ki = 0.0;
 float Kd = 0.8;   
 
 long error = 0, lastError = 0, errorSum = 0;
-int baseSpeed = 130;  // Adjust as needed 120
+int baseSpeed = 100;  // Adjust as needed 120
 
 const int sensorPos[8] = { -3500, -2500, -1500, -500, 500, 1500, 2500, 3500 };
 
 void motor(int leftSpeed, int rightSpeed);
 void pidControl();
 bool checkStopCondition();
+bool check90DegreeTurn();
+void turnLeft90();
+void turnRight90();
 
 void setup() {
   Serial.begin(9600);
@@ -36,22 +39,76 @@ void setup() {
 }
 
 void loop() {
+
   if (checkStopCondition()) {
-    motor(0, 0);  // Stop if too many black detected
-  } else {
-    pidControl();
+    motor(0, 0);
+    return;
   }
+
+  if (check90DegreeTurn()) {
+    return;  // 90° handled, skip PID
+  }
+
+  pidControl();  // Only when no special condition
+}
+
+bool check90DegreeTurn() {
+
+  static unsigned long lastTurnTime = 0;
+  if (millis() - lastTurnTime < 300) return false;
+  lastTurnTime = millis();
+  
+  int s[8];
+
+  for (int i = 0; i < 8; i++) {
+    s[i] = (analogRead(irPins[i]) > th) ? 1 : 0;
+  }
+
+  int left = s[0] + s[1] + s[2];
+  int center = s[3] + s[4];
+  int right = s[5] + s[6] + s[7];
+
+  // ❌ CROSS / PLUS junction → GO STRAIGHT
+  if (left >= 2 && center >= 1 && right >= 2) {
+    return false;
+  }
+
+  // ✅ RIGHT 90° (L shape)
+  if (right >= 2 && center == 0 && left == 0) {
+    turnRight90();
+    return true;
+  }
+
+  // ✅ LEFT 90° (L shape)
+  if (left >= 2 && center == 0 && right == 0) {
+    turnLeft90();
+    return true;
+  }
+
+  return false;
+}
+
+void turnLeft90() {
+  motor(100, -100);  // Rotate left
+  delay(160);        // Tune this delay
+  motor(0, 0);
+}
+
+void turnRight90() {
+  motor(-100, 100);  // Rotate right
+  delay(160);        // Tune this delay
+  motor(0, 0);
 }
 
 bool checkStopCondition() {
   int blackCount = 0;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 7; i >= 0; i--) {
     int val = analogRead(irPins[i]);
     if (val > th) {
       blackCount++;
     }
   }
-  if (blackCount >= 6) {   // যদি ৬ বা তার বেশি সেন্সর কালো পায় তাহলে থামবে
+  if (blackCount >= 6) {   
     return true;
   }
   return false;
@@ -60,7 +117,7 @@ bool checkStopCondition() {
 void pidControl() {
   long avg = 0, sum = 0;
 
-  for (int i = 0; i < 8; i++) {
+  for (int i = 7; i >= 0; i--) {
     int val = analogRead(irPins[i]);
     if (val > th) {
       avg += sensorPos[i];
