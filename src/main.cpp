@@ -16,7 +16,7 @@ float Ki = 0.0;
 float Kd = 0.8;
 
 long error = 0, lastError = 0, errorSum = 0;
-int baseSpeed = 130;
+int baseSpeed = 120;
 
 const int sensorPos[8] = {-3500, -2500, -1500, -500, 500, 1500, 2500, 3500};
 
@@ -133,8 +133,6 @@ void handleOldTurnLogic()
       k90 = 1;
       cross = 0;
       resetTimer = millis();
-      m1 = millis();
-      m2 = millis();
 
       if (counter == 0)
       {
