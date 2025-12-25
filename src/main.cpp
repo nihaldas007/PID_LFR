@@ -207,7 +207,7 @@ void handleOldTurnLogic()
     {
       readSensorsGlobal();
       m2 = millis();
-      if (m2 - m1 >= epoint)
+      if (m2 - m1 >= (unsigned long)epoint)
       { //....................................  Sum == 0,  Millis(); ................................
         motor(-tsp, -tsp);
         delay(br);
