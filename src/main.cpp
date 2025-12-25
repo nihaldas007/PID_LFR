@@ -25,14 +25,14 @@ int binary[] = {1, 2, 4, 8, 16, 32, 64, 128};
 int sensor = 0;
 int sum = 0;
 
-long int flag = 0;
+long int flag = 0, tflag = 0;
 int k90 = 0;
 int cross = 0;
 int node = 10;
 
 unsigned long m1, m2;
 unsigned long stp = 30;
-unsigned long resetTimer = 0; 
+unsigned long resetTimer = 0;
 
 int tsp = 80;
 int tbr = 30;
@@ -44,6 +44,7 @@ void motor(int leftSpeed, int rightSpeed);
 void pidControl();
 void readSensorsGlobal();
 void handleOldTurnLogic();
+void handleTLeft();
 
 void setup()
 {
@@ -64,7 +65,6 @@ void loop()
   if (sum == 8)
   {
     m2 = millis();
-    flag = 1;
     while (sum == 8)
     {
       readSensorsGlobal();
@@ -76,6 +76,11 @@ void loop()
         return;
       }
     }
+  }
+  if (sum >= 6 && (s[3] || s[4]))
+  {
+    handleTLeft();
+    return;
   }
 
   handleOldTurnLogic();
@@ -127,30 +132,35 @@ void handleOldTurnLogic()
       flag = 1;
       k90 = 1;
       cross = 0;
-      resetTimer = millis(); 
+      resetTimer = millis();
       m1 = millis();
       m2 = millis();
 
-//       if (counter == 0) {
-//           while (s[0] && !s[7])readSensorsGlobal();
-//           if (!s[0]) {
-//             delay(node); readSensorsGlobal();
-//             if (sum > 0) {
-// //              if (counter == 2) {
-//                 cross = 1;
-//                 // counter++;
-// //              }
-// //              else if(counter == 1 || counter == 0)cross = 1;
-//             }
-//           }
-//         }
-        // cross = 0;
+      if (counter == 0)
+      {
+        while (s[0] && !s[7])
+          readSensorsGlobal();
+        if (!s[0])
+        {
+          delay(node);
+          readSensorsGlobal();
+          if (sum > 0)
+          {
+            //              if (counter == 2) {
+            cross = 1;
+            // counter++;
+            //              }
+            //              else if(counter == 1 || counter == 0)cross = 1;
+          }
+        }
+      }
+      // cross = 0;
     }
     else if (sensor == 0b00111111 || sensor == 0b00011111 || sensor == 0b00001111 || sensor == 0b00000111)
     {
       flag = 2;
       k90 = 2;
-      resetTimer = millis(); 
+      resetTimer = millis();
     }
   }
 
@@ -191,20 +201,24 @@ void handleOldTurnLogic()
       flag = 0;
       k90 = 0;
     }
+
     m1 = m2 = millis();
-        while (sum == 0) {
+    while (sum == 0)
+    {
+      readSensorsGlobal();
+      m2 = millis();
+      if (m2 - m1 >= epoint)
+      { //....................................  Sum == 0,  Millis(); ................................
+        motor(-tsp, -tsp);
+        delay(br);
+        motor(-tsp, tsp);
+        while (s[3] == 0 && s[4] == 0)
           readSensorsGlobal();
-          m2 = millis();
-          if (m2 - m1 >= epoint) {  //....................................  Sum == 0,  Millis(); ................................
-            motor(-tsp, -tsp);
-            delay(br);
-            motor(-tsp, tsp);
-            while (s[2] == 0 && s[3] == 0) readSensorsGlobal();
-            motor(tsp, -tsp);
-            delay(tbr);
-            break;
-          }
-        }
+        motor(tsp, -tsp);
+        delay(tbr);
+        break;
+      }
+    }
   }
   else if (sum == 1 || sum == 2)
   {
@@ -221,66 +235,85 @@ void handleOldTurnLogic()
     }
   }
 }
-
-void pidControl()
+void handleTLeft()
 {
-  long avg = 0;
-  long activeCount = 0;
+  // Move forward a bit
+  motor(baseSpeed, baseSpeed);
+  delay(40);
 
-  for (int i = 7; i >= 0; i--)
+  // Rotate LEFT
+  motor(-tsp, tsp);
+    // Rotate right
+  // motor(tsp, -tsp);
+
+  // Wait until center sensors catch line
+  while (true)
   {
-    if (s[i] == 1)
+    readSensorsGlobal();
+    if (s[3] || s[4]) break;
+  }
+
+  motor(tsp, -tsp);//left
+  // motor(-tsp, tsp);//right
+  delay(tbr);
+}
+  void pidControl()
+  {
+    long avg = 0;
+    long activeCount = 0;
+
+    for (int i = 7; i >= 0; i--)
     {
-      avg += sensorPos[i];
-      activeCount++;
+      if (s[i] == 1)
+      {
+        avg += sensorPos[i];
+        activeCount++;
+      }
+    }
+
+    if (activeCount != 0)
+    {
+      error = avg / activeCount;
+    }
+
+    long P = error;
+    errorSum += error;
+    long D = error - lastError;
+    lastError = error;
+
+    long output = Kp * P + Ki * errorSum + Kd * D;
+
+    int leftMotor = baseSpeed - output;
+    int rightMotor = baseSpeed + output;
+
+    motor(constrain(leftMotor, -255, 255), constrain(rightMotor, -255, 255));
+  }
+
+  void motor(int leftSpeed, int rightSpeed)
+  {
+    if (leftSpeed >= 0)
+    {
+      digitalWrite(LEFT_DIR1, HIGH);
+      digitalWrite(LEFT_DIR2, LOW);
+      analogWrite(LEFT_EN, leftSpeed);
+    }
+    else
+    {
+      digitalWrite(LEFT_DIR1, LOW);
+      digitalWrite(LEFT_DIR2, HIGH);
+      analogWrite(LEFT_EN, -leftSpeed);
+    }
+
+    if (rightSpeed >= 0)
+    {
+      digitalWrite(RIGHT_DIR1, HIGH);
+      digitalWrite(RIGHT_DIR2, LOW);
+      analogWrite(RIGHT_EN, rightSpeed);
+    }
+    else
+    {
+      digitalWrite(RIGHT_DIR1, LOW);
+      digitalWrite(RIGHT_DIR2, HIGH);
+      analogWrite(RIGHT_EN, -rightSpeed);
     }
   }
-
-  if (activeCount != 0)
-  {
-    error = avg / activeCount;
-  }
-
-  long P = error;
-  errorSum += error;
-  long D = error - lastError;
-  lastError = error;
-
-  long output = Kp * P + Ki * errorSum + Kd * D;
-
-  int leftMotor = baseSpeed - output;
-  int rightMotor = baseSpeed + output;
-
-  motor(constrain(leftMotor, -255, 255), constrain(rightMotor, -255, 255));
-}
-
-
-
-void motor(int leftSpeed, int rightSpeed)
-{
-  if (leftSpeed >= 0)
-  {
-    digitalWrite(LEFT_DIR1, HIGH);
-    digitalWrite(LEFT_DIR2, LOW);
-    analogWrite(LEFT_EN, leftSpeed);
-  }
-  else
-  {
-    digitalWrite(LEFT_DIR1, LOW);
-    digitalWrite(LEFT_DIR2, HIGH);
-    analogWrite(LEFT_EN, -leftSpeed);
-  }
-
-  if (rightSpeed >= 0)
-  {
-    digitalWrite(RIGHT_DIR1, HIGH);
-    digitalWrite(RIGHT_DIR2, LOW);
-    analogWrite(RIGHT_EN, rightSpeed);
-  }
-  else
-  {
-    digitalWrite(RIGHT_DIR1, LOW);
-    digitalWrite(RIGHT_DIR2, HIGH);
-    analogWrite(RIGHT_EN, -rightSpeed);
-  }
-}
