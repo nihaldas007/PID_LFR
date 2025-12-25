@@ -16,7 +16,7 @@ float Ki = 0.0;
 float Kd = 0.8;
 
 long error = 0, lastError = 0, errorSum = 0;
-int baseSpeed = 80;
+int baseSpeed = 130;
 
 const int sensorPos[8] = {-3500, -2500, -1500, -500, 500, 1500, 2500, 3500};
 
@@ -28,6 +28,7 @@ int sum = 0;
 long int flag = 0;
 int k90 = 0;
 int cross = 0;
+int node = 10;
 
 unsigned long m1, m2;
 unsigned long stp = 30;
@@ -37,6 +38,7 @@ int tsp = 80;
 int tbr = 30;
 int br = 10;
 int counter = 0;
+int epoint = 20;
 
 void motor(int leftSpeed, int rightSpeed);
 void pidControl();
@@ -62,7 +64,7 @@ void loop()
   if (sum == 8)
   {
     m2 = millis();
-    flag = 2;
+    flag = 1;
     while (sum == 8)
     {
       readSensorsGlobal();
@@ -83,7 +85,7 @@ void loop()
     return;
   }
 
-  if (sum > 0)
+  if (sum == 1 || sum == 2)
   {
     pidControl();
   }
@@ -111,7 +113,7 @@ void readSensorsGlobal()
 
 void handleOldTurnLogic()
 {
-  if ((flag != 0 || cross != 0) && (millis() - resetTimer > 150))
+  if ((flag != 0 || cross != 0) && (millis() - resetTimer > 20))
   {
     flag = 0;
     k90 = 0;
@@ -129,22 +131,20 @@ void handleOldTurnLogic()
       m1 = millis();
       m2 = millis();
 
-      while (sum != 7 && sum != 0)
-      {
-        readSensorsGlobal();
-        m2 = millis();
-
-        if (m2 - m1 >= 80)
-        {
-          cross = 1;
-          flag = 0;
-          k90 = 0;
-          resetTimer = millis(); 
-          break;
-        }
-        if ((sensor & 0b11100000) == 0)
-          break;
-      }
+//       if (counter == 0) {
+//           while (s[0] && !s[7])readSensorsGlobal();
+//           if (!s[0]) {
+//             delay(node); readSensorsGlobal();
+//             if (sum > 0) {
+// //              if (counter == 2) {
+//                 cross = 1;
+//                 // counter++;
+// //              }
+// //              else if(counter == 1 || counter == 0)cross = 1;
+//             }
+//           }
+//         }
+        // cross = 0;
     }
     else if (sensor == 0b00111111 || sensor == 0b00011111 || sensor == 0b00001111 || sensor == 0b00000111)
     {
@@ -191,6 +191,20 @@ void handleOldTurnLogic()
       flag = 0;
       k90 = 0;
     }
+    m1 = m2 = millis();
+        while (sum == 0) {
+          readSensorsGlobal();
+          m2 = millis();
+          if (m2 - m1 >= epoint) {  //....................................  Sum == 0,  Millis(); ................................
+            motor(-tsp, -tsp);
+            delay(br);
+            motor(-tsp, tsp);
+            while (s[2] == 0 && s[3] == 0) readSensorsGlobal();
+            motor(tsp, -tsp);
+            delay(tbr);
+            break;
+          }
+        }
   }
   else if (sum == 1 || sum == 2)
   {
