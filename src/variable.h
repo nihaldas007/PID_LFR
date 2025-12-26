@@ -35,3 +35,4 @@ int tbr = 30;
 int br = 10;
 // int counter;
 int epoint = 30;
+const int ButtonPin = 11;

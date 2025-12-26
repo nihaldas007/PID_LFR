@@ -21,3 +21,25 @@ void sensorsGlobal()
     sum += s[i];
   }
 }
+
+void debug(bool read)
+{
+  while (1)
+  {
+    sensorsGlobal();
+    for (int i = 7; i >= 0; i--)
+    {
+      if (read == true)
+      {
+        Serial.print(s[i]);
+        Serial.print(" ");
+      }
+      else
+      {
+        Serial.print(analogRead(irPins[i]));
+        Serial.print(" ");
+      }
+    }
+    Serial.println(" ");
+  }
+}

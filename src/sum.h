@@ -3,7 +3,6 @@
 #include "variable.h"
 #include "sensorRead.h"
 
-
 void sumsGlobal()
 {
   if (sum == 0)
@@ -42,6 +41,21 @@ void sumsGlobal()
       }
       flag = 0;
       k90 = 0;
+    }
+    m1 = m2 = millis();
+    while (sum == 0)
+    {
+      sensorsGlobal();
+      m2 = millis();
+      if (m2 - m1 >= (unsigned long)epoint)
+      { //....................................  UTurn ................................
+        motor(-tsp, tsp);
+        while (s[3] == 0 && s[4] == 0)
+          sensorsGlobal();
+        motor(tsp, -tsp);
+        delay(tbr);
+        break;
+      }
     }
   }
   else if (sum == 1 || sum == 2)
